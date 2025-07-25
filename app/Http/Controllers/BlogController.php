@@ -91,7 +91,7 @@ class BlogController extends Controller
 
             if ($request->File('image')) {
                 $file = $request->file('image');
-                // $filename = uniqid() . '.' . $file->getClientOriginalExtension();
+               
                 $filename = $file->getClientOriginalName();
                 $file->move(public_path('uploads'), $filename);
                 $path = 'uploads/' . $filename;
