@@ -32,7 +32,15 @@ class BlogController extends Controller
                         $sub->where('title', 'like', "%{$s}%")
                             ->orWhere('description', 'like', "%{$s}%");
                     });
-                });
+                })
+                 ->orWhereHas('user',function($q) use ($request)
+            {
+                 $s = $request->search;
+                    $q->where(function ($sub) use ($s) {
+                        $sub->where('name', 'like', "%{$s}%")
+                            ->orWhere('name', 'like', "%{$s}%");
+                    });
+            });
 
             if ($sort === 'most_liked') {
                 $query->orderByDesc('likes_count')->orderByDesc('created_at');
