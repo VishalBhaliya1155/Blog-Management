@@ -9,7 +9,7 @@ use App\Models\Blog;
 class BlogController extends Controller
 {
 
-     public function index(Request $request)
+ public function index(Request $request)
 {
     try {
         $userId = $request->user()->id;
@@ -30,8 +30,11 @@ class BlogController extends Controller
                 $q->where(function ($sub) use ($search) {
                     $sub->where('title', 'like', "%{$search}%")
                         ->orWhere('description', 'like', "%{$search}%");
+                })->orWhereHas('user', function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%");
+                });
             })
-             ->orWhereHas('user',function($q) use ($request)
+           ->orWhereHas('user',function($q) use ($request)
             {
                  $s = $request->search;
                     $q->where(function ($sub) use ($s) {
@@ -74,6 +77,8 @@ class BlogController extends Controller
 }
 
 
+
+
     public function store(Request $request)
     {
         try {
@@ -92,7 +97,7 @@ class BlogController extends Controller
             if ($request->File('image')) {
                 $file = $request->file('image');
                
-                $filename = $file->getClientOriginalName();
+                $filename =$file->getClientOriginalName();
                 $file->move(public_path('uploads'), $filename);
                 $path = 'uploads/' . $filename;
             }
