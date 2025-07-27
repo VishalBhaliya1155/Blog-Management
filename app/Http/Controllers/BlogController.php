@@ -30,8 +30,6 @@ class BlogController extends Controller
                 $q->where(function ($sub) use ($search) {
                     $sub->where('title', 'like', "%{$search}%")
                         ->orWhere('description', 'like', "%{$search}%");
-                })->orWhereHas('user', function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%");
                 });
             })
            ->orWhereHas('user',function($q) use ($request)
