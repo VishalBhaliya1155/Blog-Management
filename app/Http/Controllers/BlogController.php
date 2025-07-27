@@ -9,31 +9,29 @@ use App\Models\Blog;
 class BlogController extends Controller
 {
 
-    public function index(Request $request)
-    {
-        try {
-            $userId = $request->user()->id;
+     public function index(Request $request)
+{
+    try {
+        $userId = $request->user()->id;
 
-            $perPage = (int) $request->get('per_page', 10);
-            $perPage = $perPage > 500 ? 500 : $perPage;
-            $page = (int) $request->get('page', 1);
-            if ($page < 1) {
-                $page = 1;
-            }
+        $perPage = (int) $request->get('per_page', 10);
+        $perPage = $perPage > 500 ? 500 : $perPage;
+        $page = max((int) $request->get('page', 1), 1);
+        $sort = $request->get('sort');
+        $search = $request->search;
 
-            $sort = $request->get('sort');
-
-            $query = Blog::query()
-                ->with(['user:id,name,email', 'likes:id,user_id,likeable_id,likeable_type'])
-                ->withCount('likes')
-                ->when($request->filled('search'), function ($q) use ($request) {
-                    $s = $request->search;
-                    $q->where(function ($sub) use ($s) {
-                        $sub->where('title', 'like', "%{$s}%")
-                            ->orWhere('description', 'like', "%{$s}%");
-                    });
-                })
-                 ->orWhereHas('user',function($q) use ($request)
+        $query = Blog::query()
+            ->with(['user:id,name,email'])
+            ->withCount('likes')
+            ->withExists(['likes as liked_by_user' => function ($q) use ($userId) {
+                $q->where('user_id', $userId);
+            }])
+            ->when($request->filled('search'), function ($q) use ($search) {
+                $q->where(function ($sub) use ($search) {
+                    $sub->where('title', 'like', "%{$search}%")
+                        ->orWhere('description', 'like', "%{$search}%");
+            })
+             ->orWhereHas('user',function($q) use ($request)
             {
                  $s = $request->search;
                     $q->where(function ($sub) use ($s) {
@@ -42,44 +40,38 @@ class BlogController extends Controller
                     });
             });
 
-            if ($sort === 'most_liked') {
-                $query->orderByDesc('likes_count')->orderByDesc('created_at');
-            } else {
-                $query->orderByDesc('created_at');
-            }
-
-            $paginator = $query->paginate($perPage, ['*'], 'page', $page);
-
-            $paginator->getCollection()->transform(function ($blog) use ($userId) {
-                $blog->liked_by_user = $blog->relationLoaded('likes')
-                    ? $blog->likes->contains('user_id', $userId)
-                    : $blog->likes()->where('user_id', $userId)->exists();
-
-                $blog->like_count = $blog->likes_count;
-                $blog->image = $blog->image ? url($blog->image) : null;
-
-                return $blog;
-            });
-
-            return response()->json([
-                'status' => true,
-                'message' => 'Blogs fetched successfully',
-                'data' => [
-                    'blogs' => $paginator->items(),
-                    'current_page' => $paginator->currentPage(),
-                    'total_rows' => $paginator->total(),
-                    'total_pages' => $paginator->lastPage(),
-                    'current_page_rows' => $paginator->count(),
-                ]
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Something went wrong while fetching blogs.',
-                'error' => $e->getMessage()
-            ], 500);
+        if ($sort === 'most_liked') {
+            $query->orderByDesc('likes_count')->orderByDesc('created_at');
+        } else {
+            $query->orderByDesc('created_at');
         }
+
+        $paginator = $query->paginate($perPage, ['*'], 'page', $page);
+
+        $paginator->getCollection()->transform(function ($blog) {
+            $blog->image = $blog->image ? url($blog->image) : null;
+            return $blog;
+        });
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Blogs fetched successfully',
+            'data' => [
+                'blogs' => $paginator->items(),
+                'current_page' => $paginator->currentPage(),
+                'total_rows' => $paginator->total(),
+                'total_pages' => $paginator->lastPage(),
+                'current_page_rows' => $paginator->count(),
+            ]
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => false,
+            'message' => 'Something went wrong while fetching blogs.',
+            'error' => $e->getMessage()
+        ], 500);
     }
+}
 
 
     public function store(Request $request)
